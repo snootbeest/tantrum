@@ -37,7 +37,7 @@ provides several benefits:
  * Helps with constructor injection - matching typehinted constructor arguments with container keys is super cool.
 
 #### providerClass
-The `providerClass` is the class which will be invoked from the dependency injection container, and 
+The `providerClass` is the `ServiceProvider` which will be invoked from the dependency injection container, and 
 which will ultimately return the `LoggerInterface` instance. It contains all the logic needed for instanciation.
 
 
