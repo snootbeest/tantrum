@@ -4,6 +4,7 @@ namespace SnootBeest\Tantrum\Test;
 
 use Mockery;
 use Noodlehaus\Config;
+use Psr\Log\LoggerInterface;
 use Slim\Container;
 use SnootBeest\Tantrum\Application;;
 use SnootBeest\Tantrum\Test\ConcreteMock\ProvidedInterface;
@@ -22,10 +23,10 @@ class ApplicationTest extends TestCase
      * @covers ::__construct
      * @covers ::initContainer
      * @covers ::initDependencies
-     * @expectedException \SnootBeest\Tantrum\Exception\BootstrapException
-     * @expectedExceptionMessage No dependencies mapped
+     * @ expectedException \SnootBeest\Tantrum\Exception\BootstrapException
+     * @ expectedExceptionMessage No dependencies mapped
      */
-    public function initDependenciesThrowsExceptionWithNoDependencies()
+    public function initDependenciesSucceedsWithNoDependencies()
     {
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
@@ -33,12 +34,15 @@ class ApplicationTest extends TestCase
             ->once()
             ->with(Application::CONFIG_KEY_CONFIGURATION)
             ->andReturnFalse();
-        $mockConfig->shouldReceive('has')
+        $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnFalse();
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
+            ->andReturn([]);
 
         $application = new Application($mockConfig);
+        $container = $application->getContainer();
+        self::assertTrue($container->has(LoggerInterface::class));
+        self::assertInstanceOf(LoggerInterface::class, $container->get(LoggerInterface::class));
     }
 
     /**
@@ -56,15 +60,15 @@ class ApplicationTest extends TestCase
         $mockConfig = Mockery::mock(Config::class);
         $mockConfig->shouldReceive('has')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('has')
-            ->once()
             ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnFalse();
+            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->andReturn([]);
+        $mockConfig->shouldReceive('get')
+            ->once()
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => []
             ]);
@@ -87,13 +91,9 @@ class ApplicationTest extends TestCase
 
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_PROVIDER_CLASS => Provider::class,
@@ -146,13 +146,9 @@ class ApplicationTest extends TestCase
 
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_PROVIDER_CLASS  => Provider::class,
@@ -207,13 +203,9 @@ class ApplicationTest extends TestCase
 
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_PROVIDER_CLASS => Provider::class,
@@ -266,13 +258,9 @@ class ApplicationTest extends TestCase
 
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_PROVIDER_CLASS  => Provider::class,
@@ -328,13 +316,9 @@ class ApplicationTest extends TestCase
 
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_PROVIDER_CLASS  => Provider::class,
@@ -385,13 +369,9 @@ class ApplicationTest extends TestCase
     {
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_PROVIDER_CLASS  => SubDependency::class,
@@ -423,13 +403,9 @@ class ApplicationTest extends TestCase
     {
         /** @var Mockery\Mock | Config $mockConfig */
         $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
-            ->andReturnTrue();
         $mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_DEPENDENCIES)
+            ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => [
                     Application::CONFIG_KEY_DEPENDENCY_TYPE => uniqid(),

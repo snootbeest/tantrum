@@ -2,9 +2,11 @@
 
 namespace SnootBeest\Tantrum;
 
+use Psr\Log\LoggerInterface;
 use Slim\App;
 use Slim\Container;
 use SnootBeest\Tantrum\Exception\BootstrapException;
+use SnootBeest\Tantrum\Service\LoggerProvider;
 use SnootBeest\Tantrum\Service\ServiceProviderInterface;
 use Noodlehaus\ConfigInterface;
 use SnootBeest\Tantrum\Core\Config;
@@ -43,6 +45,13 @@ class Application extends App
         self::DEPENDENCY_TYPE_SINGLETON,
     ];
 
+    protected static $defaultDependencies = [
+        LoggerInterface::class => [
+            self::CONFIG_KEY_PROVIDER_CLASS  => LoggerProvider::class,
+            self::CONFIG_KEY_DEPENDENCY_TYPE => self::DEPENDENCY_TYPE_SINGLETON,
+        ],
+    ];
+
     /**
      * Initialize the container
      * @param ConfigInterface $config
@@ -76,11 +85,7 @@ class Application extends App
      */
     private function initDependencies(ConfigInterface $config, Container $container, array $configuration = [])
     {
-        if($config->has(self::CONFIG_KEY_DEPENDENCIES) === false) {
-            throw new BootstrapException('No dependencies mapped');
-        }
-
-        $dependencies  = $config->get(self::CONFIG_KEY_DEPENDENCIES);
+        $dependencies = array_merge(self::$defaultDependencies, $config->get(self::CONFIG_KEY_DEPENDENCIES, []));
         foreach($dependencies as $key => $detail) {
             $dependencyConfig = array_key_exists($key, $configuration) === true ? new Config($configuration[$key]): new Config([]);
             $this->addDependency($container, $key, $detail, $dependencyConfig);
