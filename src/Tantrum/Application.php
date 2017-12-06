@@ -2,22 +2,23 @@
 
 namespace SnootBeest\Tantrum;
 
-use Psr\Log\LoggerInterface;
+use Psr\Http\Message\ResponseInterface;
 use Slim\App;
 use Slim\Container;
 use SnootBeest\Tantrum\Exception\BootstrapException;
-use SnootBeest\Tantrum\Service\LoggerProvider;
+use SnootBeest\Tantrum\Route\ControllerProxy;
 use SnootBeest\Tantrum\Service\ServiceProviderInterface;
 use Noodlehaus\ConfigInterface;
-use SnootBeest\Tantrum\Core\Config;
 
 class Application extends App
 {
+    /** Slim settings. @see https://www.slimframework.com/docs/objects/application.html#slim-default-settings */
     const CONFIG_KEY_APPLICATION     = 'application';
     const CONFIG_KEY_CONFIGURATION   = 'configuration';
     const CONFIG_KEY_DEPENDENCIES    = 'dependencies';
     const CONFIG_KEY_DEPENDENCY_TYPE = 'dependencyType';
     const CONFIG_KEY_PROVIDER_CLASS  = 'providerClass';
+    const CONFIG_KEY_ROUTE_DIRECTORY = 'routeDir';
 
     /** @see https://pimple.symfony.com/#defining-factory-services */
     const DEPENDENCY_TYPE_FACTORY   = 'factory';
@@ -25,14 +26,25 @@ class Application extends App
     const DEPENDENCY_TYPE_PROTECT   = 'protect';
     const DEPENDENCY_TYPE_SINGLETON = 'singleton';
 
+    /** @var string $cachePath - The relative path to the cache directory */
+    private static $cachePath       = '../../build/cache/';
+    /** @var string $routesFile - The filename of the compiled routes */
+    private static $routesFile      = 'routes.bin';
+
+    /** @var ConfigInterface $config */
+    private $config;
+
     /**
      * These are the keys in the config object which mean something special to Tantrum
      * @var array
      */
     public static $protectedConfigKeys = [
+        self::CONFIG_KEY_APPLICATION,
+        self::CONFIG_KEY_CONFIGURATION,
         self::CONFIG_KEY_DEPENDENCIES,
         self::CONFIG_KEY_DEPENDENCY_TYPE,
         self::CONFIG_KEY_PROVIDER_CLASS,
+        self::CONFIG_KEY_ROUTE_DIRECTORY,
     ];
 
     /**
@@ -45,33 +57,42 @@ class Application extends App
         self::DEPENDENCY_TYPE_SINGLETON,
     ];
 
-    protected static $defaultDependencies = [
-        LoggerInterface::class => [
-            self::CONFIG_KEY_PROVIDER_CLASS  => LoggerProvider::class,
-            self::CONFIG_KEY_DEPENDENCY_TYPE => self::DEPENDENCY_TYPE_SINGLETON,
-        ],
-    ];
-
     /**
      * Initialize the container
      * @param ConfigInterface $config
      */
     public function __construct(ConfigInterface $config)
     {
-        $container = $this->initContainer($config);
+        $this->config = $config;
+        $container = $this->initContainer();
         parent::__construct($container);
     }
 
     /**
+     * {@inheritdoc}
+     * Runs the application using the routes saved during the build process
+     * @param bool $silent - Determines whether a response is returned
+     * @return null | ResponseInterface
+     */
+    public function run($silent = false): ResponseInterface
+    {
+        $this->initRoutes();
+        $response = parent::run($silent);
+
+        if($silent === false) {
+            return $response;
+        }
+    }
+
+    /**
      * Extract the dependencies from the config and add them to the container
-     * @param ConfigInterface $config
      * @return Container
      */
-    private function initContainer(ConfigInterface $config): Container
+    private function initContainer(): Container
     {
-        $configuration = $config->has(self::CONFIG_KEY_CONFIGURATION) ? $config->get(self::CONFIG_KEY_CONFIGURATION) : [];
+        $configuration = $this->config->has(self::CONFIG_KEY_CONFIGURATION) ? $this->config->get(self::CONFIG_KEY_CONFIGURATION) : [];
         $container = new Container();
-        $this->initDependencies($config, $container, $configuration);
+        $this->initDependencies($this->config, $container, $configuration);
 
         return $container;
     }
@@ -85,7 +106,12 @@ class Application extends App
      */
     private function initDependencies(ConfigInterface $config, Container $container, array $configuration = [])
     {
-        $dependencies = array_merge(self::$defaultDependencies, $config->get(self::CONFIG_KEY_DEPENDENCIES, []));
+        if($config->has(self::CONFIG_KEY_DEPENDENCIES) === false) {
+            // @fixme: We should log this and carry on. It's possible that the implementor might not want to use this awesome feature
+            throw new BootstrapException('No dependencies mapped');
+        }
+
+        $dependencies  = $config->get(self::CONFIG_KEY_DEPENDENCIES);
         foreach($dependencies as $key => $detail) {
             $dependencyConfig = array_key_exists($key, $configuration) === true ? new Config($configuration[$key]): new Config([]);
             $this->addDependency($container, $key, $detail, $dependencyConfig);
@@ -110,7 +136,7 @@ class Application extends App
         $dependencyType = array_key_exists(self::CONFIG_KEY_DEPENDENCY_TYPE, $detail) ? $detail[self::CONFIG_KEY_DEPENDENCY_TYPE] : null;
         $dependencies = array_key_exists(self::CONFIG_KEY_DEPENDENCIES, $detail) ? $detail[self::CONFIG_KEY_DEPENDENCIES] : [];
 
-        $service = $this->createService($container, $providerClass, $dependencies, $config);
+        $service = $this->createService($providerClass, $dependencies, $config);
         switch($dependencyType) {
             case self::DEPENDENCY_TYPE_FACTORY:
                 $container[$key] = $container->factory($service);
@@ -129,13 +155,12 @@ class Application extends App
 
     /**
      * Create the service closure
-     * @param Container $container
      * @param string $providerClass
      * @param array $dependencies
      * @param Config $config
      * @return \Closure
      */
-    private function createService(Container $container, string $providerClass, array $dependencies, Config $config): \Closure
+    private function createService(string $providerClass, array $dependencies, Config $config): \Closure
     {
         return function(Container $container) use ($providerClass, $dependencies, $config) {
             $args = [];
@@ -151,5 +176,46 @@ class Application extends App
             $provider->setConfig($config);
             return $provider();
         };
+    }
+
+    /**
+     * Fetch the routes from the cache and add them to the application
+     */
+    private function initRoutes()
+    {
+        /** @var Container $container */
+        $container = $this->getContainer();
+
+        $routesPath = realpath(self::$cachePath.self::$routesFile);
+        if($routesPath === false) {
+            // @todo: Debug 'Falling back to slim route init & caching'
+            return false;
+        }
+
+        $routes = unserialize(file_get_contents($routesPath));
+
+        /** @var ControllerProxy $controllerProxy */
+        foreach($routes as $controllerProxy) {
+            $this->processControllerProxy($this, $controllerProxy);
+            $container[$controllerProxy->getClassName()] = $container->factory($controllerProxy);
+        }
+    }
+
+    /**
+     * Add the route methods from the controller proxy to the application
+     * @param Application     $app
+     * @param ControllerProxy $controllerProxy
+     */
+    private function processControllerProxy(Application $app, ControllerProxy $controllerProxy)
+    {
+        $className = $controllerProxy->getClassName();
+        foreach ($controllerProxy->getMethods() as $methodProxy) {
+
+            $routeKey = sprintf('%s:%s', $className, $methodProxy->getName());
+            $route = sprintf('/api%s', $methodProxy->getRoute());
+            $httpMethod = $methodProxy->getMethod();
+            $app->$httpMethod($route, $routeKey)
+                ->setName($routeKey);
+        }
     }
 }

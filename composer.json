@@ -24,7 +24,8 @@
     "require": {
         "slim/slim": "^3.8",
         "hassankhan/config": "^0.10.0",
-        "monolog/monolog": "^1.23"
+        "monolog/monolog": "^1.23",
+        "phpdocumentor/reflection-docblock": "^4.2"
     },
     "require-dev": {
         "phpunit/phpunit": "^6.4",

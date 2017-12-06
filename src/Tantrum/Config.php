@@ -1,5 +1,5 @@
 <?php
-namespace SnootBeest\Tantrum\Core;
+namespace SnootBeest\Tantrum;
 
 use Noodlehaus\AbstractConfig;
 
