@@ -3,12 +3,15 @@
 namespace SnootBeest\Tantrum;
 
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 use Slim\App;
 use Slim\Container;
 use SnootBeest\Tantrum\Exception\BootstrapException;
 use SnootBeest\Tantrum\Route\ControllerProxy;
+use SnootBeest\Tantrum\Service\LoggerProvider;
 use SnootBeest\Tantrum\Service\ServiceProviderInterface;
 use Noodlehaus\ConfigInterface;
+use SnootBeest\Tantrum\Core\Config;
 
 class Application extends App
 {
@@ -55,6 +58,13 @@ class Application extends App
         self::DEPENDENCY_TYPE_FACTORY,
         self::DEPENDENCY_TYPE_PROTECT,
         self::DEPENDENCY_TYPE_SINGLETON,
+    ];
+
+    protected static $defaultDependencies = [
+        LoggerInterface::class => [
+            self::CONFIG_KEY_PROVIDER_CLASS  => LoggerProvider::class,
+            self::CONFIG_KEY_DEPENDENCY_TYPE => self::DEPENDENCY_TYPE_SINGLETON,
+        ],
     ];
 
     /**
@@ -106,12 +116,8 @@ class Application extends App
      */
     private function initDependencies(ConfigInterface $config, Container $container, array $configuration = [])
     {
-        if($config->has(self::CONFIG_KEY_DEPENDENCIES) === false) {
+        $dependencies = array_merge(self::$defaultDependencies, $config->get(self::CONFIG_KEY_DEPENDENCIES, []));
             // @fixme: We should log this and carry on. It's possible that the implementor might not want to use this awesome feature
-            throw new BootstrapException('No dependencies mapped');
-        }
-
-        $dependencies  = $config->get(self::CONFIG_KEY_DEPENDENCIES);
         foreach($dependencies as $key => $detail) {
             $dependencyConfig = array_key_exists($key, $configuration) === true ? new Config($configuration[$key]): new Config([]);
             $this->addDependency($container, $key, $detail, $dependencyConfig);
