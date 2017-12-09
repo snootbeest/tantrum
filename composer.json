@@ -1,5 +1,5 @@
 {
-    "name": "snootbeest\tantrum",
+    "name": "snootbeest/tantrum",
     "description": "RESTful API framework based on Slim 3",
     "type" : "library",
     "keywords": ["REST, API, Slim 3, bootstrap, php, service locator, dependency injection"],
