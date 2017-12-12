@@ -85,7 +85,12 @@ class Application extends App
      */
     private function initDependencies(ConfigInterface $config, Container $container, array $configuration = [])
     {
+<<<<<<< HEAD
         $dependencies = array_merge(self::$defaultDependencies, $config->get(self::CONFIG_KEY_DEPENDENCIES, []));
+=======
+        //$dependencies = array_merge(self::$defaultDependencies, $config->get(self::CONFIG_KEY_DEPENDENCIES));
+        $dependencies = $config->get(self::CONFIG_KEY_DEPENDENCIES);
+>>>>>>> e8a52979e11abaf16db2a27d4d4fc4bbdc845863
         foreach($dependencies as $key => $detail) {
             $dependencyConfig = array_key_exists($key, $configuration) === true ? new Config($configuration[$key]): new Config([]);
             $this->addDependency($container, $key, $detail, $dependencyConfig);

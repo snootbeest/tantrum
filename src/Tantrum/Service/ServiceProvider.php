@@ -10,7 +10,7 @@ abstract class ServiceProvider implements ServiceProviderInterface
     protected $config;
 
     /**
-     * A config object for this factory
+     * A config object for this provider
      * @param ConfigInterface $config
      */
     public function setConfig(ConfigInterface $config)
