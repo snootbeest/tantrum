@@ -1,23 +1,38 @@
 <?php
+/**
+ * This file is part of tantrum.
+ *
+ *  tantrum is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  tantrum is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with tantrum.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 namespace SnootBeest\Tantrum\Route;
 
 use Psr\Log\LoggerInterface;
 use Slim\Container;
+use SnootBeest\Tantrum\Controller;
 
 /**
  * Class ControllerProxy
  * @package SnootBeest\Tantrum\Route
  */
-class ControllerProxy implements \Serializable
+class ControllerProxy implements ControllerProxyInterface
 {
     /** @var LoggerInterface $logger */
     private $logger;
 
     /** @var string $className */
     private $className;
-
-    /** @var int $version */
-    private $version;
 
     /** @var MethodProxy[]  */
     private $methods = [];
@@ -27,12 +42,13 @@ class ControllerProxy implements \Serializable
 
     /**
      * ControllerProxy constructor.
-     * @param  LoggerInterface $logger
-     * @param ConstructorProxyFactory $constructorProxyFactory
-     * @param  MethodProxyFactory $methodProxyFactory
+     * @param LoggerInterface $logger
+     * @param ConstructorProxyFactoryInterface $constructorProxyFactory
+     * @param MethodProxyFactoryInterface $methodProxyFactory
      * @param \ReflectionClass $reflectionClass
      */
-    public function __construct(LoggerInterface $logger, ConstructorProxyFactory $constructorProxyFactory, MethodProxyFactory $methodProxyFactory, \ReflectionClass $reflectionClass)
+    public function __construct(LoggerInterface $logger, ConstructorProxyFactoryInterface $constructorProxyFactory,
+                                MethodProxyFactoryInterface $methodProxyFactory, \ReflectionClass $reflectionClass)
     {
         $this->logger      = $logger;
         $this->className   = $reflectionClass->getName();
@@ -41,6 +57,7 @@ class ControllerProxy implements \Serializable
     }
 
     /**
+     * {@inheritdoc}
      * @return string
      */
     public function getClassName(): string
@@ -49,14 +66,7 @@ class ControllerProxy implements \Serializable
     }
 
     /**
-     * @return int
-     */
-    public function getVersion(): int
-    {
-        return $this->version;
-    }
-
-    /**
+     * {@inheritdoc}
      * @return MethodProxy[]
      */
     public function getMethods(): array
@@ -65,20 +75,21 @@ class ControllerProxy implements \Serializable
     }
 
     /**
-     * @return ConstructorProxy
+     * {@inheritdoc}
+     * @return ConstructorProxyInterface
      */
-    public function getConstructor(): ConstructorProxy
+    public function getConstructor(): ConstructorProxyInterface
     {
         return $this->constructor;
     }
 
     /**
      * Get a method proxy for each public method
-     * @param MethodProxyFactory $methodProxyFactory
+     * @param MethodProxyFactoryInterface $methodProxyFactory
      * @param \ReflectionClass $reflectionClass
      * @return array
      */
-    private function getMethodProxies(MethodProxyFactory $methodProxyFactory, \ReflectionClass $reflectionClass): array
+    private function getMethodProxies(MethodProxyFactoryInterface $methodProxyFactory, \ReflectionClass $reflectionClass): array
     {
         $methods = [];
         $reflectionMethods = $reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC);
@@ -102,34 +113,32 @@ class ControllerProxy implements \Serializable
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      * @return string
      */
     public function serialize(): string
     {
         return serialize([
             'className'        => $this->className,
-            'version'          => $this->version,
             'methods'          => $this->methods,
             'constructor'      => $this->constructor,
         ]);
     }
     
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      * @param string $serialized
      */
     public function unserialize($serialized)
     {
         $data = unserialize($serialized);
         $this->className        = $data['className'];
-        $this->version          = $data['version'];
         $this->methods          = $data['methods'];
         $this->constructor      = $data['constructor'];
     }
 
     /**
-     * Called by the app when the route is initialized
+     * {@inheritdoc}
      * @param Container $container
      * @return Controller
      */
