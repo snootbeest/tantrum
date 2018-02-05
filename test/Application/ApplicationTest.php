@@ -1,48 +1,60 @@
 <?php
+/**
+ * This file is part of tantrum.
+ *
+ *  tantrum is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  tantrum is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with tantrum.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-namespace SnootBeest\Tantrum\Test;
+namespace SnootBeest\Tantrum\Test\Application;
 
 use Mockery;
-use Noodlehaus\Config;
 use Psr\Log\LoggerInterface;
 use Slim\Container;
-use SnootBeest\Tantrum\Application;;
-use SnootBeest\Tantrum\Test\ConcreteMock\ProvidedInterface;
-use SnootBeest\Tantrum\Test\ConcreteMock\SubDependency;
-use SnootBeest\Tantrum\Test\ConcreteMock\SubDependencyProvider;
-use SnootBeest\Tantrum\Test\ConcreteMock\Provided;
-use SnootBeest\Tantrum\Test\ConcreteMock\Provider;
+use SnootBeest\Tantrum\Application;
+use SnootBeest\Tantrum\Test\ConcreteMock\Service\ProvidedInterface;
+use SnootBeest\Tantrum\Test\ConcreteMock\Service\SubDependency;
+use SnootBeest\Tantrum\Test\ConcreteMock\Service\SubDependencyProvider;
+use SnootBeest\Tantrum\Test\ConcreteMock\Service\Provided;
+use SnootBeest\Tantrum\Test\ConcreteMock\Service\Provider;
 
 /**
  * @coversDefaultClass \SnootBeest\Tantrum\Application
  */
-class ApplicationTest extends TestCase
+class ApplicationTest extends ApplicationTestCase
 {
     /**
      * @test
      * @covers ::__construct
      * @covers ::initContainer
      * @covers ::initDependencies
-     * @ expectedException \SnootBeest\Tantrum\Exception\BootstrapException
-     * @ expectedExceptionMessage No dependencies mapped
      */
     public function initDependenciesSucceedsWithNoDependencies()
     {
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnFalse();
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([]);
+        $this->mockConfig->shouldReceive('get')
+            ->once()
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
+            ->andReturn([]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertTrue($container->has(LoggerInterface::class));
         self::assertInstanceOf(LoggerInterface::class, $container->get(LoggerInterface::class));
+        self::assertDefaultDependencies($container);
     }
 
     /**
@@ -52,28 +64,22 @@ class ApplicationTest extends TestCase
      * @covers ::initDependencies
      * @covers ::addDependency
      * @expectedException \SnootBeest\Tantrum\Exception\BootstrapException
-     * @expectedExceptionMessage No providerClass found for "SnootBeest\Tantrum\Test\ConcreteMock\ProvidedInterface"
+     * @expectedExceptionMessage No providerClass found for "SnootBeest\Tantrum\Test\ConcreteMock\Service\ProvidedInterface"
      */
     public function addDependencyThrowsExceptionWithNoProviderClass()
     {
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('get')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
             ->andReturn([]);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
                 Provider::KEY => []
             ]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
     }
 
     /**
@@ -89,9 +95,7 @@ class ApplicationTest extends TestCase
         $expectedConstructorValue = uniqid();
         $expectedSetterValue      = uniqid();
 
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -105,13 +109,9 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS => SubDependencyProvider::class
                 ]
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('get')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
             ->andReturn([
                 ProvidedInterface::class => [
                     'constructorValue' => $expectedConstructorValue,
@@ -119,7 +119,7 @@ class ApplicationTest extends TestCase
                 ]
             ]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));
@@ -129,6 +129,7 @@ class ApplicationTest extends TestCase
         self::assertEquals($expectedConstructorValue, $constructorValue);
         $setterValue = $this->getInaccessiblePropertyValue('setterValue', $provided);
         self::assertEquals($expectedSetterValue, $setterValue);
+        self::assertDefaultDependencies($container);
     }
 
     /**
@@ -144,9 +145,7 @@ class ApplicationTest extends TestCase
         $expectedConstructorValue = uniqid();
         $expectedSetterValue      = uniqid();
 
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -161,13 +160,9 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS => SubDependencyProvider::class
                 ]
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('get')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
             ->andReturn([
                 ProvidedInterface::class => [
                     'constructorValue' => $expectedConstructorValue,
@@ -175,7 +170,7 @@ class ApplicationTest extends TestCase
                 ]
             ]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));
@@ -186,6 +181,7 @@ class ApplicationTest extends TestCase
         self::assertEquals($expectedConstructorValue, $constructorValue);
         $setterValue = $this->getInaccessiblePropertyValue('setterValue', $provided);
         self::assertEquals($expectedSetterValue, $setterValue);
+        self::assertDefaultDependencies($container);
     }
 
     /**
@@ -201,9 +197,7 @@ class ApplicationTest extends TestCase
         $expectedConstructorValue = uniqid();
         $expectedSetterValue      = uniqid();
 
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -217,13 +211,9 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS => SubDependencyProvider::class
                 ]
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('get')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
             ->andReturn([
                 ProvidedInterface::class => [
                     'constructorValue' => $expectedConstructorValue,
@@ -231,7 +221,7 @@ class ApplicationTest extends TestCase
                 ]
             ]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));
@@ -241,6 +231,7 @@ class ApplicationTest extends TestCase
         self::assertEquals($expectedConstructorValue, $constructorValue);
         $setterValue = $this->getInaccessiblePropertyValue('setterValue', $provided);
         self::assertEquals($expectedSetterValue, $setterValue);
+        self::assertDefaultDependencies($container);
     }
 
     /**
@@ -256,9 +247,7 @@ class ApplicationTest extends TestCase
         $expectedConstructorValue = uniqid();
         $expectedSetterValue      = uniqid();
 
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -273,13 +262,9 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS => SubDependencyProvider::class
                 ]
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('get')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
             ->andReturn([
                 ProvidedInterface::class => [
                     'constructorValue' => $expectedConstructorValue,
@@ -287,7 +272,7 @@ class ApplicationTest extends TestCase
                 ]
             ]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));
@@ -299,6 +284,7 @@ class ApplicationTest extends TestCase
         self::assertEquals($expectedConstructorValue, $constructorValue);
         $setterValue = $this->getInaccessiblePropertyValue('setterValue', $provided);
         self::assertEquals($expectedSetterValue, $setterValue);
+        self::assertDefaultDependencies($container);
     }
 
     /**
@@ -314,9 +300,7 @@ class ApplicationTest extends TestCase
         $expectedConstructorValue = uniqid();
         $expectedSetterValue      = uniqid();
 
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -331,13 +315,9 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS => SubDependencyProvider::class
                 ]
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnTrue();
-        $mockConfig->shouldReceive('get')
-            ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
             ->andReturn([
                 ProvidedInterface::class => [
                     'constructorValue' => $expectedConstructorValue,
@@ -345,14 +325,14 @@ class ApplicationTest extends TestCase
                 ]
             ]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));
         $provided = $container->get(Provider::KEY);
         self::assertEquals($provided, $container->get(Provider::KEY));
         self::assertInstanceOf(\Closure::class, $provided);
-
+        self::assertDefaultDependencies($container);
     }
 
     /**
@@ -363,13 +343,11 @@ class ApplicationTest extends TestCase
      * @covers ::addDependency
      * @covers ::createService
      * @expectedException \SnootBeest\Tantrum\Exception\BootstrapException
-     * @expectedExceptionMessage "SnootBeest\Tantrum\Test\ConcreteMock\SubDependency" is not an instance of SnootBeest\Tantrum\Service\ServiceProviderInterface
+     * @expectedExceptionMessage "SnootBeest\Tantrum\Test\ConcreteMock\Service\SubDependency" is not an instance of SnootBeest\Tantrum\Service\ServiceProviderInterface
      */
     public function initContainerThrowsExceptionWithNoProviderInterface()
     {
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -377,12 +355,12 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS  => SubDependency::class,
                 ],
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnFalse();
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
+            ->andReturn([]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));
@@ -401,9 +379,7 @@ class ApplicationTest extends TestCase
      */
     public function initContainerThrowsExceptionWithWrongDependencyType()
     {
-        /** @var Mockery\Mock | Config $mockConfig */
-        $mockConfig = Mockery::mock(Config::class);
-        $mockConfig->shouldReceive('get')
+        $this->mockConfig->shouldReceive('get')
             ->once()
             ->with(Application::CONFIG_KEY_DEPENDENCIES, [])
             ->andReturn([
@@ -412,12 +388,12 @@ class ApplicationTest extends TestCase
                     Application::CONFIG_KEY_PROVIDER_CLASS  => Provider::class,
                 ],
             ]);
-        $mockConfig->shouldReceive('has')
+        $this->mockConfig->shouldReceive('get')
             ->once()
-            ->with(Application::CONFIG_KEY_CONFIGURATION)
-            ->andReturnFalse();
+            ->with(Application::CONFIG_KEY_CONFIGURATION, [])
+            ->andReturn([]);
 
-        $application = new Application($mockConfig);
+        $application = new Application($this->mockConfig);
         $container = $application->getContainer();
         self::assertInstanceOf(Container::class, $container);
         self::assertTrue($container->has(Provider::KEY));

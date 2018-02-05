@@ -14,6 +14,10 @@
     <filter>
         <whitelist addUncoveredFilesFromWhitelist="true">
             <directory suffix=".php">src/Tantrum</directory>
+            <exclude>
+                <file>src/Tantrum/defaultDependencies.php</file>
+                <file>src/Tantrum/defaultConfiguration.php</file>
+            </exclude>
         </whitelist>
     </filter>
     <logging>
